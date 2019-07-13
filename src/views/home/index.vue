@@ -5,75 +5,155 @@
         <!-- <van-search placeholder="请输入搜索关键词" v-model="value" /> -->
 
         <!-- 导航栏 -->
-          <van-tabs v-model="active" class="nav-list">
-          <van-tab title="标签 1">
-            <!-- 内容列表 -->
-            <van-pull-refresh v-model="isLoading" @refresh="onRefresh">
+          <van-tabs v-model="activeChannelIndex" class="nav-list">
+            <div slot="nav-right" class="wap-nav" @click="isChannelShow = true">
+              <van-icon name="wap-nav" />
+            </div>
+            <van-tab
+             v-for="channelItem in channels"
+             :key="channelItem.id"
+             :title="channelItem.name">
+              <!-- 内容列表 -->
+              <van-pull-refresh v-model="channelItem.pullLoading" @refresh="onRefresh">
               <van-list
-              v-model="loading"
-              :finished="finished"
+              v-model="channelItem.upLoading"
+              :finished="channelItem.finished"
               finished-text="没有更多了"
               @load="onLoad"
               >
                 <van-cell
-                  v-for="item in list"
-                  :key="item"
-                  :title="item"
+                  v-for="item in channelItem.articles"
+                  :key="item.art_id"
+                  :title="item.title"
                 />
              </van-list>
-            </van-pull-refresh>
-          </van-tab>
-          <van-tab title="标签 2">内容 2</van-tab>
-          <van-tab title="标签 3">内容 3</van-tab>
-          <van-tab title="标签 4">内容 4</van-tab>
-        </van-tabs>
+              </van-pull-refresh>
+            </van-tab>
+          </van-tabs>
 
-        <!-- 底部 -->
-        <van-tabbar v-model="active1" class="nav-bottom" route>
-          <van-tabbar-item icon="wap-home" to="/">首页</van-tabbar-item>
-          <van-tabbar-item icon="chat-o" to="/qa">问答</van-tabbar-item>
-          <van-tabbar-item icon="play-circle-o" to="/vedio">视频</van-tabbar-item>
-          <van-tabbar-item icon="manager-o" to="/my">我的</van-tabbar-item>
-        </van-tabbar>
+        <home-channel
+        v-model="isChannelShow"
+        :my-channels.sync="channels"
+        :activeChannel.sync="activeChannelIndex"
+        ></home-channel>
     </div>
 </template>
 
 <script>
+import { getChannelsAuto } from '@/api/channel'
+import { getArticles } from '@/api/article'
+import HomeChannel from './components/channel'
 export default {
   name: 'home',
+  components: {
+    HomeChannel
+  },
   data () {
     return {
-      active: 0,
-      list: [],
-      loading: false,
-      finished: false,
-      isLoading: false,
+      activeChannelIndex: 0,
       active1: 0,
-      value: ''
+      value: '',
+      channels: [],
+      isChannelShow: false
+    }
+  },
+  async created () {
+    await this.loadChannels()
+  },
+  computed: {
+    activeChannel () {
+      return this.channels[this.activeChannelIndex]
+    }
+  },
+  watch: {
+    // 监视容器中的 user 的状态，只要 user 发生改变，那么就重新获取频道列表
+    //  * 注意：凡是能 this. 点儿出来的东西都可以被监视
+    '$store.state.user' () {
+      this.loadChannels()
+      this.activeChannel.upLoading = true
     }
   },
   methods: {
-    onLoad () {
-      // 异步更新数据
-      setTimeout(() => {
-        for (let i = 0; i < 10; i++) {
-          this.list.push(this.list.length + 1)
-        }
-        // 加载状态结束
-        this.loading = false
-
-        // 数据全部加载完成
-        if (this.list.length >= 40) {
-          this.finished = true
-        }
-      }, 500)
+    async onLoad () {
+      await this.$sleep(1000)
+      let data = []
+      data = await this.loadArticles()
+      // 如果没有 pre_timestamp 并且数组是空的，则意味着没有数据了
+      if (!data.pre_timestamp && !data.results.length) {
+        // 设置该频道数据已记载完毕，组件会自动给出提示，并且不再 onLoad
+        this.activeChannel.Finished = true
+        // 取消 loading
+        this.activeChannel.upLoading = false
+        // 代码不要往后继续执行了
+        return
+      }
+      // 解决初始化的时候没有最新推荐数据的问题（没有最新数据，那就加载上一次推荐数据）
+      if (data.pre_timestamp && !data.results.length) {
+        this.activeChannel.timestamp = data.pre_timestamp
+        // 加载下一页数据
+        data = await this.loadArticles()
+      }
+      // 数据加载好以后，将 pre_timestamp 更新到当前频道的中用于加载下下页数据
+      this.activeChannel.timestamp = data.pre_timestamp
+      // 将文章数据更新到频道中（注意：是 push 追加，不是覆盖）
+      this.activeChannel.articles.push(...data.results)
+      // 数据加载完毕，取消上拉 loading
+      this.activeChannel.upLoading = false
     },
-    onRefresh () {
-      setTimeout(() => {
-        this.$toast('刷新成功')
-        this.isLoading = false
-        this.count++
-      }, 500)
+    async onRefresh () {
+      // 备份之前的时间戳
+      const timestamp = this.activeChannel.timestamp
+      // 请求最新的时间
+      this.activeChannel.timestamp = Date.now()
+      const data = await this.loadArticles()
+      // 如果有数据
+      if (data.results.length) {
+        // 重置当前频道的文章列表
+        this.activeChannel.articles = data.results
+        // 保存上一次的时间戳
+        this.activeChannel.timestamp = data.pre_timestamp
+        // 此时，如果数据不够一屏，加载满屏
+        this.onload()
+      }
+
+      this.activeChannel.pullLoading = false
+      // 没有最新数据，将原来的用于请求下一页的时间戳恢复过来
+      this.activeChannel.timestamp = timestamp
+    },
+    async loadChannels () {
+      try {
+        let channels = []
+        const localChannels = JSON.parse(window.localStorage.getItem('channels'))
+        if (localChannels) {
+          // 如果右本地存储使用本地存储
+          channels = localChannels
+        } else {
+          // 如果没有，请求数据
+          channels = (await getChannelsAuto()).channels
+        }
+        // 给每项频道列表，添加自己的数据
+        channels.forEach((item) => {
+          item.articles = []
+          item.timestamp = Date.now()
+          item.upLoading = false
+          item.finished = false
+          item.pullLoading = false
+        })
+
+        this.channels = channels
+      } catch (err) {
+        console.log(err)
+        this.$toast.fail('获取频道列表失败')
+      }
+    },
+    async loadArticles () {
+      try {
+        const { id: channelId, timestamp } = this.activeChannel
+        const data = await getArticles({ channelId, timestamp, withTop: 1 })
+        return data
+      } catch (err) {
+        console.log(err)
+      }
     }
   }
 }
@@ -81,7 +161,7 @@ export default {
 
 <style lang="less" scoped>
 .nav-top {
-     background: #3296fa;
+  background: #3296fa;
  }
  .nav-list {
    margin-bottom: 80px;
@@ -92,5 +172,14 @@ export default {
  }
  .nav-list  /deep/ .van-tabs__content {
   margin-top: 92px;
+}
+.wap-nav {
+  position: sticky;
+  right: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0.8;
+  background: #fff;
+
 }
 </style>

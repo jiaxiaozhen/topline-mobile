@@ -1,6 +1,6 @@
 import axios from 'axios'
 const request = axios.create({
-  baseURL: 'http://toutiao.course.itcast.cn'
+  baseURL: 'http://ttapi.research.itcast.cn'
 })
 
 // 请求拦截器

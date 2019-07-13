@@ -8,18 +8,20 @@
             <van-field
               left-icon="phone-o"
               v-model="user.mobile"
-              required
+              v-validate="'required|digits:11'"
+              name="mobile"
               clearable
               placeholder="请输入手机号"
-              :error-message="err.mobile"
+              :error-message="errors.first('mobile')"
             />
             <van-field
             left-icon="certificate"
               v-model="user.code"
               type="password"
+              name="code"
               placeholder="请输入密码"
-              required
-              :error-message="err.code"
+              v-validate="'required|digits:6'"
+              :error-message="errors.first('code')"
             />
         </form>
         <div class="btn-box">
@@ -43,47 +45,50 @@ export default {
     return {
       user: {
         mobile: '18612139592',
-        code: '123456'
+        code: '246810'
       },
-      err: {
-        mobile: '',
-        code: ''
-      },
+      // err: {
+      //   mobile: '',
+      //   code: ''
+      // },
       loginLoading: false
     }
+  },
+  created () {
+    this.loadingCheck()
   },
   methods: {
     async handleLogin () {
       try {
-        // 表单验证
-        if (!this.user.mobile) {
-          this.err.mobile = '手机号不能为空'
+        const valid = await this.$validator.validate()
+        if (!valid) {
           return
-        } else {
-          if (this.user.mobile.length !== 11) {
-            this.err.mobile = '手机格式不正确'
-            return
-          } else {
-            this.err.mobile = ''
-          }
-        }
-        if (!this.user.code) {
-          this.err.code = '密码不能为空'
-          return
-        } else {
-          this.err.code = ''
         }
         this.loginLoading = true
         const data = await login(this.user)
-        console.log(data)
         setUser(data)
         this.$store.commit('setToken', data)
         this.$router.push({ name: 'home' })
       } catch (err) {
         console.log(err)
-        console.log('登陆失败')
+        this.$toast.fail('登录失败,手机号或者验证码错误')
       }
       this.loginLoading = false
+    },
+    loadingCheck () {
+      const dict = {
+        custom: {
+          mobile: {
+            required: '手机号不能为空',
+            digits: '请输入11位有效的手机号'
+          },
+          code: {
+            required: () => '密码不能为空',
+            digits: '请输入6位有效密码'
+          }
+        }
+      }
+      this.$validator.localize('zh_CN', dict)
     }
   }
 }
