@@ -9,3 +9,21 @@ export const getArticles = ({ channelId, timestamp, withTop }) => request({
     with_top: withTop
   }
 })
+
+export const dislikeArticle = articleId => request({
+  url: '/app/v1_0/article/dislikes',
+  method: 'POST',
+  data: {
+    target: articleId
+  }
+})
+
+export const reportArticle = (articleId, type, remark) => request({
+  url: '/app/v1_0/article/reports',
+  method: 'POST',
+  data: {
+    target: articleId,
+    type,
+    remark: ''
+  }
+})

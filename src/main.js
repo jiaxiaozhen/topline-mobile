@@ -8,12 +8,13 @@ import 'amfe-flexible'
 
 // 引入vant
 import { NavBar, Field, Button, Notify, Tab, Tabs, List, PullRefresh, Tabbar,
-  TabbarItem, Search, cell, Toast, Popup, Icon, Grid, GridItem } from 'vant'
+  TabbarItem, Search, cell, Toast, Popup, Icon, Grid, GridItem, Image, Lazyload, Dialog, CellGroup } from 'vant'
 // 表单验证
 import VeeValidate, { Validator } from 'vee-validate'
 import zhCN from 'vee-validate/dist/locale/zh_CN'
 import Vddl from 'vddl'
-
+import relativeTime from '@/filters/relative-time'
+Vue.filter('relativeTime', relativeTime)
 Vue.use(Vddl)
 Vue.use(VeeValidate, {
   // 禁用change、blur事件的验证
@@ -22,7 +23,8 @@ Vue.use(VeeValidate, {
 Validator.localize('zh_CN', zhCN)
 Vue.use(NavBar).use(Field).use(Button).use(Notify).use(Tab).use(Tabs).use(List)
   .use(PullRefresh).use(Tabbar).use(TabbarItem).use(Search).use(cell).use(Toast)
-  .use(Popup).use(Icon).use(Grid).use(GridItem)
+  .use(Popup).use(Icon).use(Grid).use(GridItem).use(Image).use(Lazyload).use(Dialog)
+  .use(CellGroup)
 
 Vue.prototype.$sleep = (time) => {
   return new Promise((resolve, reject) => {

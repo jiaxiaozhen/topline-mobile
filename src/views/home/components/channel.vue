@@ -43,7 +43,7 @@
 </template>
 
 <script>
-import { getAllChannels, deleteChannel } from '@/api/channel'
+import { getAllChannels, deleteChannel, addChannelReq } from '@/api/channel'
 export default {
   name: 'Homechannel',
   props: {
@@ -90,21 +90,25 @@ export default {
       const data = await getAllChannels()
       this.allChannels = data.channels
     },
-    addChannel (item) {
+    async addChannel (item) {
       const channels = this.myChannels.slice(0)
       channels.push(item)
       this.$emit('update:my-channels', channels)
       const { user } = this.$store.state
       // 如果用户已登录，则发请求，添加频道
       if (user) {
-
+        try {
+          await addChannelReq(item.id, channels.length - 1)
+        } catch (err) {
+          console.log(err)
+        }
       } else {
         // 如果没有登录则存入本地存储
         window.localStorage.setItem('channels', JSON.stringify(channels))
       }
     },
     async handleEditChannel (item, index) {
-      console.log(item)
+      console.log(item.id)
       // 如果是非编辑状态，点击切换
       if (!this.isEdit) {
         // 父子组件通信
@@ -120,7 +124,7 @@ export default {
       // 如果用户已登录，则请求接口删除数据
       if (user) {
         try {
-          await deleteChannel(item)
+          await deleteChannel(item.id)
         } catch (err) {
           console.log(err)
         }

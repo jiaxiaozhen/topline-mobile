@@ -23,9 +23,37 @@
               >
                 <van-cell
                   v-for="item in channelItem.articles"
-                  :key="item.art_id"
+                  :key="item.art_id.toString()"
                   :title="item.title"
-                />
+                >
+                <div slot="label">
+                  <template v-if="item.cover.type">
+                    <van-grid :border="false" :column-num="3">
+                      <van-grid-item v-for="(img,index) in item.cover.images" :key="index">
+                        <van-image :src="img" v-lazy="img" />
+                      </van-grid-item>
+                    </van-grid>
+                  </template>
+                  <p>
+                    <span>{{ item.aut_name }}</span>
+                    &nbsp;
+                    <span>{{ item.comm_count }}评论</span>
+                    &nbsp;
+                    <span>{{ item.pubdate|relativeTime }}</span>
+                    <van-icon
+                    class="close"
+                    name="close"
+                    @click="more(item)"
+                     />
+                    <template v-if="isMoreShow">
+                      <more-option
+                       v-model="isMoreShow"
+                       :articleItem="activeArticle"
+                       :articleList.sync="activeChannel.articles"></more-option>
+                    </template>
+                  </p>
+                </div>
+                </van-cell>
              </van-list>
               </van-pull-refresh>
             </van-tab>
@@ -43,10 +71,12 @@
 import { getChannelsAuto } from '@/api/channel'
 import { getArticles } from '@/api/article'
 import HomeChannel from './components/channel'
+import MoreOption from './components/more-option'
 export default {
   name: 'home',
   components: {
-    HomeChannel
+    HomeChannel,
+    MoreOption
   },
   data () {
     return {
@@ -54,7 +84,9 @@ export default {
       active1: 0,
       value: '',
       channels: [],
-      isChannelShow: false
+      isChannelShow: false,
+      isMoreShow: false,
+      activeArticle: {}
     }
   },
   async created () {
@@ -154,6 +186,10 @@ export default {
       } catch (err) {
         console.log(err)
       }
+    },
+    more (item) {
+      this.isMoreShow = true
+      this.activeArticle = item
     }
   }
 }
@@ -180,6 +216,8 @@ export default {
   align-items: center;
   opacity: 0.8;
   background: #fff;
-
+}
+.close {
+  float: right;
 }
 </style>
